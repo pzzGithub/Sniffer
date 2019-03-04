@@ -55,15 +55,33 @@ CSnifferDlg::CSnifferDlg(CWnd* pParent /*=nullptr*/)
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
 
+//初始化winpcap
+int CSnifferDlg::InitWinpcap()
+{
+	devNum = 0;
+	if (pcap_findalldevs_ex(PCAP_SRC_IF_STRING, NULL, &alldevs, errbuf) == -1)
+		return -1;
+	for (dev = alldevs; dev != NULL; dev = dev->next)
+		devNum++;
+	return 0;
+}
+
 void CSnifferDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_LIST1, m_listCtrl);
+	DDX_Control(pDX, IDC_COMBO1, m_comboBoxDevice);
+	DDX_Control(pDX, IDC_COMBO2, m_comboBoxRule);
+	DDX_Control(pDX, IDC_TREE1, m_treeCtrl);
+	DDX_Control(pDX, IDC_BUTTON1, m_buttonStart);
+	DDX_Control(pDX, IDC_BUTTON2, m_buttonStop);
 }
 
 BEGIN_MESSAGE_MAP(CSnifferDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_CBN_SELCHANGE(IDC_COMBO1, &CSnifferDlg::OnCbnSelchangeCombo1)
 END_MESSAGE_MAP()
 
 
@@ -99,6 +117,16 @@ BOOL CSnifferDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	m_comboBoxDevice.AddString(_T("请选择网卡"));
+	if (InitWinpcap() < 0)
+		return FALSE;
+	for (dev = alldevs; dev != NULL; dev = dev->next)
+	{
+		if (dev->description)
+			m_comboBoxDevice.AddString(CString(dev->description));
+	}
+
+	m_comboBoxDevice.SetCurSel(0);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -152,3 +180,9 @@ HCURSOR CSnifferDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+
+
+void CSnifferDlg::OnCbnSelchangeCombo1()
+{
+	// TODO: 在此添加控件通知处理程序代码
+}
