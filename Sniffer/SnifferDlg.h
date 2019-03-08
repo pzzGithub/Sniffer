@@ -4,6 +4,8 @@
 
 #pragma once
 #include"pcap.h"
+#include"Protocol.h"
+#include"analyze.h"
 
 // CSnifferDlg 对话框
 class CSnifferDlg : public CDialogEx
@@ -12,6 +14,7 @@ class CSnifferDlg : public CDialogEx
 public:
 	CSnifferDlg(CWnd* pParent = nullptr);	// 标准构造函数
 	int InitWinpcap();
+	int StartWinpcap();
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_SNIFFER_DIALOG };
@@ -32,16 +35,25 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
-	afx_msg void OnCbnSelchangeCombo1();
 	CListCtrl m_listCtrl;
 	CComboBox m_comboBoxDevice;
 	CComboBox m_comboBoxRule;
 	CTreeCtrl m_treeCtrl;
 	CButton m_buttonStart;
 	CButton m_buttonStop;
+	CButton m_buttonSave;
+	CButton m_buttonRead;
 
 	pcap_if_t *alldevs;
 	pcap_if_t *dev;
+	pcap_t *adhandle;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	int devNum;
+	int packetNum;
+	pcap_dumper_t *dumpfile;
+	char filepath[512];//文件保存路径
+	char filename[64];//文件名称		
+	CWinThread* winpcapThread;
+	
+	afx_msg void OnBnClickedButton1();
 };

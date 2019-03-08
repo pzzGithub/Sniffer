@@ -182,6 +182,8 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="analyze.h" />
+    <ClInclude Include="Protocol.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Sniffer.h" />
     <ClInclude Include="SnifferDlg.h" />
@@ -189,6 +191,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="analyze.cpp" />
     <ClCompile Include="Sniffer.cpp" />
     <ClCompile Include="SnifferDlg.cpp" />
     <ClCompile Include="stdafx.cpp">

@@ -11,14 +11,13 @@
 #define new DEBUG_NEW
 #endif
 
-
+UINT WinpcapThreadFun(LPVOID lpParam);
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
 class CAboutDlg : public CDialogEx
 {
 public:
 	CAboutDlg();
-
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_ABOUTBOX };
@@ -66,6 +65,244 @@ int CSnifferDlg::InitWinpcap()
 	return 0;
 }
 
+int CSnifferDlg::StartWinpcap()
+{
+	int devIndex,filterIndex;
+	u_long netmask;
+	struct bpf_program fcode;
+
+	InitWinpcap();
+	devIndex=m_comboBoxDevice.GetCurSel();
+	filterIndex = m_comboBoxRule.GetCurSel();
+	if (devIndex == 0 || devIndex==CB_ERR)
+	{
+		MessageBox(_T("请选择一个网卡"));
+		return -1;
+	}
+	if (filterIndex == CB_ERR)
+	{
+		MessageBox(_T("过滤器选择错误"));
+		return -1;
+	}
+	dev = alldevs;
+	for (int i = 0; i < devIndex - 1; i++)
+		dev = dev->next;
+
+	//打开网卡
+	if ((adhandle = pcap_open(dev->name,65536,PCAP_OPENFLAG_PROMISCUOUS,1000,NULL,errbuf)) == NULL)
+	{
+		MessageBox(_T("无法打开接口：" + CString(dev->description)));
+		pcap_freealldevs(alldevs);
+		return -1;
+	}
+
+	//检查是否是以太网
+	if (pcap_datalink(adhandle) != DLT_EN10MB)
+	{
+		MessageBox(_T("非以太网的网络!"));
+		pcap_freealldevs(alldevs);
+		return -1;
+	}
+
+	//获取网卡掩码
+	if (dev->addresses != NULL)
+		netmask = ((struct sockaddr_in *)(dev->addresses->netmask))->sin_addr.S_un.S_addr;
+	else
+		netmask = 0xffffff;
+
+	//编译过滤器
+	if (filterIndex == 0)
+	{
+		char filter[] = "";
+		if (pcap_compile(adhandle, &fcode, filter, 1, netmask) < 0)
+		{
+			MessageBox(_T("语法错误，无法编译过滤器"));
+			pcap_freealldevs(alldevs);
+			return -1;
+		}
+	}
+	else
+	{
+		CString str;
+		char* filter;
+		int len;
+		m_comboBoxRule.GetLBText(filterIndex, str);
+		len = str.GetLength() + 1;
+		filter = (char*)malloc(len);
+		for (int i = 0; i < len; i++) 
+		{
+			filter[i] = str.GetAt(i);
+		}
+		if (pcap_compile(adhandle, &fcode, filter, 1, netmask) < 0)
+		{
+			MessageBox(_T("语法错误，无法编译过滤器"));
+			pcap_freealldevs(alldevs);
+			return -1;
+		}
+	}
+
+	//设置过滤器
+	if (pcap_setfilter(adhandle, &fcode) < 0)
+	{
+		MessageBox(_T("设置过滤器错误"));
+		pcap_freealldevs(alldevs);
+		return -1;
+	}
+
+	//设置数据包存储路径
+	CFileFind file;
+	char thistime[30];
+	struct tm *ltime;
+	memset(filepath, 0, 512);
+	memset(filename, 0, 64);
+
+	if (!file.FindFile(_T("SavedData")))
+	{
+		CreateDirectory(_T("SavedData"), NULL);
+	}
+
+	time_t nowtime;
+	time(&nowtime);
+	ltime = localtime(&nowtime);
+	strftime(thistime, sizeof(thistime), "%Y%m%d %H%M%S", ltime);
+	strcpy(filepath, "SavedData\\");
+	strcat(filename, thistime);
+	strcat(filename, ".txt");
+
+	strcat(filepath, filename);
+	dumpfile = pcap_dump_open(adhandle, filepath);
+	if (dumpfile == NULL)
+	{
+		MessageBox(_T("文件创建错误！"));
+		return -1;
+	}
+	pcap_freealldevs(alldevs);
+
+	//创建一个工作者线程
+	winpcapThread = AfxBeginThread(WinpcapThreadFun,this);
+	if (winpcapThread == NULL)
+	{
+		int code = GetLastError();
+		CString str;
+		str.Format(_T("创建线程错误，代码为%d."), code);
+		MessageBox(str);
+		return -1;
+	}
+	return 1;
+}
+
+UINT WinpcapThreadFun(LPVOID lpParam)
+{
+	CSnifferDlg *dlg = (CSnifferDlg*)lpParam;
+
+	int res, itemNum;
+	struct tm *ltime;
+	CString timestr, buf, srcMac, destMac;
+	time_t local_tv_sec;
+	struct pcap_pkthdr *header;//数据包头
+	const u_char *pkt_data = NULL;//数据包body
+	u_char *ppkt_data;
+
+	if (dlg->winpcapThread == NULL)
+	{
+		return -1;
+	}
+	while ((res = pcap_next_ex(dlg->adhandle, &header, &pkt_data)) >= 0)
+	{
+		if (res == 0)
+			continue;
+
+		struct pktdata *data = (struct pktdata*)malloc(sizeof(struct pktdata));
+		memset(data, 0, sizeof(struct pktdata));
+		
+		if (data == NULL)
+		{
+			MessageBox(NULL, _T("空间已满，无法接收新的数据包"), _T("Error"), MB_OK);
+			return -1;
+		}
+
+		//判断是否是符合要求的数据包
+		if (analyze_frame(pkt_data, data) < 0)
+			continue;
+
+		//数据包保存到文件中
+		if (dlg->dumpfile != NULL)
+		{
+			pcap_dump((u_char*)dlg->dumpfile, header, pkt_data);
+		}
+
+		data->len = header->len;
+		local_tv_sec = header->ts.tv_sec;
+		ltime = localtime(&local_tv_sec);
+		data->time[0] = ltime->tm_year + 1900;
+		data->time[1] = ltime->tm_mon + 1;
+		data->time[2] = ltime->tm_mday;
+		data->time[3] = ltime->tm_hour;
+		data->time[4] = ltime->tm_min;
+		data->time[5] = ltime->tm_sec;
+
+		//在ListControl插入一行
+		buf.Format(_T("%d"), dlg->packetNum);
+		itemNum=dlg->m_listCtrl.InsertItem(dlg->packetNum, buf);
+
+		//时间
+		timestr.Format(_T("%d/%d/%d  %d:%d:%d"), data->time[0],
+			data->time[1], data->time[2], data->time[3], data->time[4], data->time[5]);
+		dlg->m_listCtrl.SetItemText(itemNum, 1,timestr);
+
+		//报文长度
+		buf.Empty();
+		buf.Format(_T("%d"), data->len);
+		dlg->m_listCtrl.SetItemText(itemNum, 2, buf);
+
+		//源MAC
+		buf.Empty();
+		buf.Format(_T("%02X-%02X-%02X-%02X-%02X-%02X"), data->ethh->src[0], data->ethh->src[1],
+			data->ethh->src[2], data->ethh->src[3], data->ethh->src[4], data->ethh->src[5]);
+		dlg->m_listCtrl.SetItemText(itemNum, 3, buf);
+
+		//目的MAC
+		buf.Empty();
+		buf.Format(_T("%02X-%02X-%02X-%02X-%02X-%02X"), data->ethh->dest[0], data->ethh->dest[1],
+			data->ethh->dest[2], data->ethh->dest[3], data->ethh->dest[4], data->ethh->dest[5]);
+		dlg->m_listCtrl.SetItemText(itemNum, 4, buf);
+
+		//协议
+		dlg->m_listCtrl.SetItemText(itemNum, 5, CString(data->pktType));
+
+		//源IP
+		buf.Empty();
+		if (data->ethh->type == 0x0806)
+		{
+			buf.Format(_T("%d.%d.%d.%d"), data->arph->ar_srcip[0],
+				data->arph->ar_srcip[1], data->arph->ar_srcip[2], data->arph->ar_srcip[3]);
+		}
+		else if (data->ethh->type == 0x0800) {
+			struct  in_addr in;
+			in.S_un.S_addr = data->iph->saddr;
+			buf = CString(inet_ntoa(in));
+		}
+		dlg->m_listCtrl.SetItemText(itemNum, 6, buf);
+
+		//目的IP
+		buf.Empty();
+		if (data->ethh->type == 0x0806)
+		{
+			buf.Format(_T("%d.%d.%d.%d"), data->arph->ar_destip[0],
+				data->arph->ar_destip[1], data->arph->ar_destip[2], data->arph->ar_destip[3]);
+		}
+		else if (data->ethh->type == 0x0800) {
+			struct  in_addr in;
+			in.S_un.S_addr = data->iph->daddr;
+			buf = CString(inet_ntoa(in));
+		}
+		dlg->m_listCtrl.SetItemText(itemNum, 7, buf);
+
+		dlg->packetNum++;
+	}
+	return 0;
+}
+
 void CSnifferDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
@@ -75,13 +312,15 @@ void CSnifferDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_TREE1, m_treeCtrl);
 	DDX_Control(pDX, IDC_BUTTON1, m_buttonStart);
 	DDX_Control(pDX, IDC_BUTTON2, m_buttonStop);
+	DDX_Control(pDX, IDC_BUTTON3, m_buttonSave);
+	DDX_Control(pDX, IDC_BUTTON4, m_buttonRead);
 }
 
 BEGIN_MESSAGE_MAP(CSnifferDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
-	ON_CBN_SELCHANGE(IDC_COMBO1, &CSnifferDlg::OnCbnSelchangeCombo1)
+	ON_BN_CLICKED(IDC_BUTTON1, &CSnifferDlg::OnBnClickedButton1)
 END_MESSAGE_MAP()
 
 
@@ -118,15 +357,40 @@ BOOL CSnifferDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	m_comboBoxDevice.AddString(_T("请选择网卡"));
+	m_comboBoxRule.AddString(_T("请选择过滤规则"));
 	if (InitWinpcap() < 0)
 		return FALSE;
+
+	//初始化网卡列表
 	for (dev = alldevs; dev != NULL; dev = dev->next)
 	{
 		if (dev->description)
 			m_comboBoxDevice.AddString(CString(dev->description));
 	}
 
+	//初始化过滤规则列表
+	m_comboBoxRule.AddString(_T("tcp"));
+	m_comboBoxRule.AddString(_T("udp"));
+	m_comboBoxRule.AddString(_T("ip"));
+	m_comboBoxRule.AddString(_T("icmp"));
+	m_comboBoxRule.AddString(_T("arp"));
+
 	m_comboBoxDevice.SetCurSel(0);
+	m_comboBoxRule.SetCurSel(0);
+
+	//初始化列表
+	m_listCtrl.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+	m_listCtrl.InsertColumn(0, _T("编号"), 3, 40);
+	m_listCtrl.InsertColumn(1, _T("时间"), 3, 130);
+	m_listCtrl.InsertColumn(2, _T("长度"), 3, 72);
+	m_listCtrl.InsertColumn(3, _T("源MAC地址"), 3, 140);
+	m_listCtrl.InsertColumn(4, _T("目的MAC地址"), 3, 140);
+	m_listCtrl.InsertColumn(5, _T("协议"), 3, 70);
+	m_listCtrl.InsertColumn(6, _T("源IP地址"), 3, 145);
+	m_listCtrl.InsertColumn(7, _T("目的IP地址"), 3, 145);
+
+	m_buttonStop.EnableWindow(FALSE);
+	m_buttonSave.EnableWindow(FALSE);
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -181,8 +445,17 @@ HCURSOR CSnifferDlg::OnQueryDragIcon()
 }
 
 
-
-void CSnifferDlg::OnCbnSelchangeCombo1()
+//开始按钮
+void CSnifferDlg::OnBnClickedButton1()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	packetNum = 1;
+
+	if (StartWinpcap() < 0)
+		return;
+	m_listCtrl.DeleteAllItems();
+	m_treeCtrl.DeleteAllItems();
+	m_buttonStart.EnableWindow(FALSE);
+	m_buttonStop.EnableWindow(TRUE);
+	m_buttonSave.EnableWindow(FALSE);
 }
