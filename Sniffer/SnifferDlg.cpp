@@ -243,6 +243,9 @@ UINT WinpcapThreadFun(LPVOID lpParam)
 			pcap_dump((u_char*)dlg->dumpfile, header, pkt_data);
 		}
 
+		//将报文放入一个链表
+		dlg->m_PacketList.AddTail(data);
+
 		data->len = header->len;
 		local_tv_sec = header->ts.tv_sec;
 		ltime = localtime(&local_tv_sec);
@@ -500,25 +503,30 @@ void CSnifferDlg::OnNMCustomdrawList1(NMHDR *pNMHDR, LRESULT *pResult)
 	else if (pLVCD->nmcd.dwDrawStage == (CDDS_ITEMPREPAINT | CDDS_SUBITEM))
 	{
 		COLORREF clrNewTextColor;
+		char buf[10];
+		memset(buf, 0, 10);
 
-		int nItem = static_cast<int>(pLVCD->nmcd.dwItemSpec);
-		CString strTemp = m_listCtrl.GetItemText(nItem, 5);
-		if (strTemp == _T("UDP"))
+		POSITION pos = m_PacketList.FindIndex(pLVCD->nmcd.dwItemSpec);
+
+		struct pktdata * data = (struct pktdata *)m_PacketList.GetAt(pos);
+		strcpy(buf, data->pktType);
+		
+		if (strcmp(buf, "UDP") == 0)
 			clrNewTextColor = RGB(194, 195, 252);
-		else if (strTemp == _T("TCP"))
+		else if (strcmp(buf, "TCP") == 0)
 			clrNewTextColor = RGB(230, 230, 230);
-		else if (strTemp == _T("ARP"))
+		else if (strcmp(buf, "ARP") == 0)
 			clrNewTextColor = RGB(226, 238, 227);
-		else if (strTemp == _T("ICMP"))
+		else if (strcmp(buf, "ICMP") == 0)
 			clrNewTextColor = RGB(49, 164, 238);
-		else if (strTemp == _T("HTTP"))
+		else if (strcmp(buf, "HTTP") == 0)
 			clrNewTextColor = RGB(238, 232, 180);
 		else
-			clrNewTextColor = RGB(255,255,255);
+			clrNewTextColor = RGB(255, 255, 255);
 		pLVCD->clrTextBk = clrNewTextColor;
 
 		*pResult = CDRF_DODEFAULT;
-	} 
+	}
 }
 
 //结束按钮

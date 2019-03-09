@@ -45,6 +45,7 @@ public:
 	CButton m_buttonStop;
 	CButton m_buttonSave;
 
+	CPtrList m_PacketList;
 	pcap_if_t *alldevs;
 	pcap_if_t *dev;
 	pcap_t *adhandle;
