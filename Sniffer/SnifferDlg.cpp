@@ -18,12 +18,12 @@ class CAboutDlg : public CDialogEx
 {
 public:
 	CAboutDlg();
-// 对话框数据
+	// 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_ABOUTBOX };
 #endif
 
-	protected:
+protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
 
 // 实现
@@ -67,14 +67,14 @@ int CSnifferDlg::InitWinpcap()
 
 int CSnifferDlg::StartWinpcap()
 {
-	int devIndex,filterIndex;
+	int devIndex, filterIndex;
 	u_long netmask;
 	struct bpf_program fcode;
 
 	InitWinpcap();
-	devIndex=m_comboBoxDevice.GetCurSel();
+	devIndex = m_comboBoxDevice.GetCurSel();
 	filterIndex = m_comboBoxRule.GetCurSel();
-	if (devIndex == 0 || devIndex==CB_ERR)
+	if (devIndex == 0 || devIndex == CB_ERR)
 	{
 		MessageBox(_T("请选择一个网卡"));
 		return -1;
@@ -89,7 +89,7 @@ int CSnifferDlg::StartWinpcap()
 		dev = dev->next;
 
 	//打开网卡
-	if ((adhandle = pcap_open(dev->name,65536,PCAP_OPENFLAG_PROMISCUOUS,1000,NULL,errbuf)) == NULL)
+	if ((adhandle = pcap_open(dev->name, 65536, PCAP_OPENFLAG_PROMISCUOUS, 1000, NULL, errbuf)) == NULL)
 	{
 		MessageBox(_T("无法打开接口：" + CString(dev->description)));
 		pcap_freealldevs(alldevs);
@@ -129,7 +129,7 @@ int CSnifferDlg::StartWinpcap()
 		m_comboBoxRule.GetLBText(filterIndex, str);
 		len = str.GetLength() + 1;
 		filter = (char*)malloc(len);
-		for (int i = 0; i < len; i++) 
+		for (int i = 0; i < len; i++)
 		{
 			filter[i] = str.GetAt(i);
 		}
@@ -179,7 +179,7 @@ int CSnifferDlg::StartWinpcap()
 	pcap_freealldevs(alldevs);
 
 	//创建一个工作者线程
-	winpcapThread = AfxBeginThread(WinpcapThreadFun,this);
+	winpcapThread = AfxBeginThread(WinpcapThreadFun, this);
 	if (winpcapThread == NULL)
 	{
 		int code = GetLastError();
@@ -188,7 +188,19 @@ int CSnifferDlg::StartWinpcap()
 		MessageBox(str);
 		return -1;
 	}
+	threadFlag = 1;
 	return 1;
+}
+
+int CSnifferDlg::UpdateEdit(int index)
+{
+
+	return 0;
+}
+
+int CSnifferDlg::UpdateTree(int index)
+{
+	return 0;
 }
 
 UINT WinpcapThreadFun(LPVOID lpParam)
@@ -207,14 +219,14 @@ UINT WinpcapThreadFun(LPVOID lpParam)
 	{
 		return -1;
 	}
-	while ((res = pcap_next_ex(dlg->adhandle, &header, &pkt_data)) >= 0)
+	while ((res = pcap_next_ex(dlg->adhandle, &header, &pkt_data)) >= 0 && dlg->threadFlag == 1)
 	{
 		if (res == 0)
 			continue;
 
 		struct pktdata *data = (struct pktdata*)malloc(sizeof(struct pktdata));
 		memset(data, 0, sizeof(struct pktdata));
-		
+
 		if (data == NULL)
 		{
 			MessageBox(NULL, _T("空间已满，无法接收新的数据包"), _T("Error"), MB_OK);
@@ -243,12 +255,12 @@ UINT WinpcapThreadFun(LPVOID lpParam)
 
 		//在ListControl插入一行
 		buf.Format(_T("%d"), dlg->packetNum);
-		itemNum=dlg->m_listCtrl.InsertItem(dlg->packetNum, buf);
+		itemNum = dlg->m_listCtrl.InsertItem(dlg->packetNum, buf);
 
 		//时间
 		timestr.Format(_T("%d/%d/%d  %d:%d:%d"), data->time[0],
 			data->time[1], data->time[2], data->time[3], data->time[4], data->time[5]);
-		dlg->m_listCtrl.SetItemText(itemNum, 1,timestr);
+		dlg->m_listCtrl.SetItemText(itemNum, 1, timestr);
 
 		//报文长度
 		buf.Empty();
@@ -313,7 +325,6 @@ void CSnifferDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON1, m_buttonStart);
 	DDX_Control(pDX, IDC_BUTTON2, m_buttonStop);
 	DDX_Control(pDX, IDC_BUTTON3, m_buttonSave);
-	DDX_Control(pDX, IDC_BUTTON4, m_buttonRead);
 }
 
 BEGIN_MESSAGE_MAP(CSnifferDlg, CDialogEx)
@@ -321,6 +332,9 @@ BEGIN_MESSAGE_MAP(CSnifferDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BUTTON1, &CSnifferDlg::OnBnClickedButton1)
+	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST1, &CSnifferDlg::OnLvnItemchangedList1)
+	ON_NOTIFY(NM_CUSTOMDRAW, IDC_LIST1, &CSnifferDlg::OnNMCustomdrawList1)
+	ON_BN_CLICKED(IDC_BUTTON2, &CSnifferDlg::OnBnClickedButton2)
 END_MESSAGE_MAP()
 
 
@@ -380,14 +394,14 @@ BOOL CSnifferDlg::OnInitDialog()
 
 	//初始化列表
 	m_listCtrl.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
-	m_listCtrl.InsertColumn(0, _T("编号"), 3, 40);
+	m_listCtrl.InsertColumn(0, _T("编号"), 3, 50);
 	m_listCtrl.InsertColumn(1, _T("时间"), 3, 130);
-	m_listCtrl.InsertColumn(2, _T("长度"), 3, 72);
+	m_listCtrl.InsertColumn(2, _T("长度"), 3, 80);
 	m_listCtrl.InsertColumn(3, _T("源MAC地址"), 3, 140);
 	m_listCtrl.InsertColumn(4, _T("目的MAC地址"), 3, 140);
 	m_listCtrl.InsertColumn(5, _T("协议"), 3, 70);
-	m_listCtrl.InsertColumn(6, _T("源IP地址"), 3, 145);
-	m_listCtrl.InsertColumn(7, _T("目的IP地址"), 3, 145);
+	m_listCtrl.InsertColumn(6, _T("源IP地址"), 3, 150);
+	m_listCtrl.InsertColumn(7, _T("目的IP地址"), 3, 150);
 
 	m_buttonStop.EnableWindow(FALSE);
 	m_buttonSave.EnableWindow(FALSE);
@@ -458,4 +472,63 @@ void CSnifferDlg::OnBnClickedButton1()
 	m_buttonStart.EnableWindow(FALSE);
 	m_buttonStop.EnableWindow(TRUE);
 	m_buttonSave.EnableWindow(FALSE);
+}
+
+
+void CSnifferDlg::OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
+	// TODO: 在此添加控件通知处理程序代码
+	*pResult = 0;
+}
+
+
+void CSnifferDlg::OnNMCustomdrawList1(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	NMLVCUSTOMDRAW* pLVCD = reinterpret_cast<NMLVCUSTOMDRAW*>(pNMHDR);
+	// TODO: 在此添加控件通知处理程序代码
+	*pResult = CDRF_DODEFAULT;
+
+	if (pLVCD->nmcd.dwDrawStage == CDDS_PREPAINT)
+	{
+		*pResult = CDRF_NOTIFYITEMDRAW;
+	}
+	else if (pLVCD->nmcd.dwDrawStage == CDDS_ITEMPREPAINT)
+	{
+		*pResult = CDRF_NOTIFYSUBITEMDRAW;
+	}
+	else if (pLVCD->nmcd.dwDrawStage == (CDDS_ITEMPREPAINT | CDDS_SUBITEM))
+	{
+		COLORREF clrNewTextColor;
+
+		int nItem = static_cast<int>(pLVCD->nmcd.dwItemSpec);
+		CString strTemp = m_listCtrl.GetItemText(nItem, 5);
+		if (strTemp == _T("UDP"))
+			clrNewTextColor = RGB(194, 195, 252);
+		else if (strTemp == _T("TCP"))
+			clrNewTextColor = RGB(230, 230, 230);
+		else if (strTemp == _T("ARP"))
+			clrNewTextColor = RGB(226, 238, 227);
+		else if (strTemp == _T("ICMP"))
+			clrNewTextColor = RGB(49, 164, 238);
+		else if (strTemp == _T("HTTP"))
+			clrNewTextColor = RGB(238, 232, 180);
+		else
+			clrNewTextColor = RGB(255,255,255);
+		pLVCD->clrTextBk = clrNewTextColor;
+
+		*pResult = CDRF_DODEFAULT;
+	} 
+}
+
+//结束按钮
+void CSnifferDlg::OnBnClickedButton2()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (winpcapThread == NULL)
+		return;
+	threadFlag = 0;
+	m_buttonStart.EnableWindow(TRUE);
+	m_buttonStop.EnableWindow(FALSE);
+	m_buttonSave.EnableWindow(TRUE);
 }

@@ -15,6 +15,8 @@ public:
 	CSnifferDlg(CWnd* pParent = nullptr);	// 标准构造函数
 	int InitWinpcap();
 	int StartWinpcap();
+	int UpdateEdit(int index);
+	int UpdateTree(int index);
 // 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_SNIFFER_DIALOG };
@@ -42,7 +44,6 @@ public:
 	CButton m_buttonStart;
 	CButton m_buttonStop;
 	CButton m_buttonSave;
-	CButton m_buttonRead;
 
 	pcap_if_t *alldevs;
 	pcap_if_t *dev;
@@ -54,6 +55,10 @@ public:
 	char filepath[512];//文件保存路径
 	char filename[64];//文件名称		
 	CWinThread* winpcapThread;
+	int threadFlag;
 	
 	afx_msg void OnBnClickedButton1();
+	afx_msg void OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnNMCustomdrawList1(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnBnClickedButton2();
 };
