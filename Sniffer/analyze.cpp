@@ -17,9 +17,9 @@ int analyze_frame(const u_char * pkt, pktdata * data)
 
 	data->ethh->type = ntohs(ethh->type);
 
-	if(data->ethh->type== 0x0806)
+	if (data->ethh->type == 0x0806)
 		return analyze_arp((u_char*)pkt + 14, data);
-	else if(data->ethh->type == 0x0800)
+	else if (data->ethh->type == 0x0800)
 		return analyze_ip((u_char*)pkt + 14, data);
 	return 1;
 }
@@ -30,7 +30,7 @@ int analyze_ip(const u_char * pkt, pktdata * data)
 	struct iphdr *iph = (struct iphdr*)pkt;
 	data->iph = (struct iphdr*)malloc(sizeof(struct iphdr));
 
-	if (data->iph==NULL)
+	if (data->iph == NULL)
 		return -1;
 	data->iph->check = iph->check;
 
@@ -139,7 +139,7 @@ int analyze_tcp(const u_char * pkt, pktdata * data)
 
 	if (ntohs(tcph->dport) == 80 || ntohs(tcph->sport) == 80)
 		strcpy(data->pktType, "HTTP");
-	else 
+	else
 		strcpy(data->pktType, "TCP");
 	return 1;
 }
@@ -165,7 +165,7 @@ int analyze_http(const u_char * pkt, pktdata * data)
 	return 0;
 }
 
-void print_packet_hex(const u_char * pkt, int size_pkt, CString * buf)
+void print_packet_hex(const u_char* pkt, int size_pkt, CString *buf)
 {
 	int i = 0, j = 0, rowcount;
 	u_char ch;

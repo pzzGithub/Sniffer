@@ -45,7 +45,8 @@ public:
 	CButton m_buttonStop;
 	CButton m_buttonSave;
 
-	CPtrList m_PacketList;
+	CPtrList m_pktdataList;
+	CPtrList m_netpktList;
 	pcap_if_t *alldevs;
 	pcap_if_t *dev;
 	pcap_t *adhandle;
@@ -62,4 +63,5 @@ public:
 	afx_msg void OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMCustomdrawList1(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnBnClickedButton2();
+	CEdit m_edit;
 };

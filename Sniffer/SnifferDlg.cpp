@@ -194,13 +194,221 @@ int CSnifferDlg::StartWinpcap()
 
 int CSnifferDlg::UpdateEdit(int index)
 {
+	POSITION localpos, netpos;
+	localpos =m_pktdataList.FindIndex(index);
+	netpos = m_netpktList.FindIndex(index);
 
-	return 0;
+	struct pktdata* local_data = (struct pktdata*)(m_pktdataList.GetAt(localpos));
+	u_char * net_data = (u_char*)(m_netpktList.GetAt(netpos));
+
+	CString buf;
+	print_packet_hex(net_data, local_data->len, &buf);
+
+	this->m_edit.SetWindowText(buf);
+	return 1;
 }
 
 int CSnifferDlg::UpdateTree(int index)
 {
-	return 0;
+	POSITION localpos;
+	CString str;
+	int i;
+
+	this->m_treeCtrl.DeleteAllItems();
+
+	localpos = m_pktdataList.FindIndex(index);
+	struct pktdata* local_data = (struct pktdata*)(m_pktdataList.GetAt(localpos));
+
+	HTREEITEM root = m_treeCtrl.GetRootItem();
+	str.Format(_T("接收到的第%d个数据包"), index + 1);
+	HTREEITEM data = m_treeCtrl.InsertItem(str, root);
+
+	/*处理帧数据*/
+	HTREEITEM frame = m_treeCtrl.InsertItem(_T("链路层数据"), data);
+	//源MAC
+	str.Format(_T("源MAC："));
+	for (i = 0; i < 6; i++)
+	{
+		if (i <= 4)
+			str.AppendFormat(_T("%02x-"), local_data->ethh->src[i]);
+		else
+			str.AppendFormat(_T("%02x"), local_data->ethh->src[i]);
+	}
+	this->m_treeCtrl.InsertItem(str, frame);
+	//目的MAC
+	str.Format(_T("目的MAC："));
+	for (i = 0; i < 6; i++)
+	{
+		if (i <= 4)
+			str.AppendFormat(_T("%02x-"), local_data->ethh->dest[i]);
+		else
+			str.AppendFormat(_T("%02x"), local_data->ethh->dest[i]);
+	}
+	m_treeCtrl.InsertItem(str, frame);
+	//类型
+	str.Format(_T("类型：0x%02x"), local_data->ethh->type);
+	this->m_treeCtrl.InsertItem(str, frame);
+
+	/*处理IP、ARP数据包*/
+	if (0x0806 == local_data->ethh->type)//ARP
+	{
+		HTREEITEM arp = m_treeCtrl.InsertItem(_T("ARP协议头"), data);
+		str.Format(_T("硬件类型：%d"), local_data->arph->ar_hrd);
+		m_treeCtrl.InsertItem(str, arp);
+		str.Format(_T("协议类型：0x%02x"), local_data->arph->ar_pro);
+		m_treeCtrl.InsertItem(str, arp);
+		str.Format(_T("硬件地址长度：%d"), local_data->arph->ar_hln);
+		m_treeCtrl.InsertItem(str, arp);
+		str.Format(_T("协议地址长度：%d"), local_data->arph->ar_pln);
+		m_treeCtrl.InsertItem(str, arp);
+		str.Format(_T("操作码：%d"), local_data->arph->ar_op);
+		m_treeCtrl.InsertItem(str, arp);
+
+		str.Format(_T("发送方MAC："));
+		for (i = 0; i < 6; i++)
+		{
+			if (i <= 4)
+				str.AppendFormat(_T("%02x-"), local_data->arph->ar_srcmac[i]);
+			else
+				str.AppendFormat(_T("%02x"), local_data->arph->ar_srcmac[i]);
+		}
+		m_treeCtrl.InsertItem(str, arp);
+
+		str.Format(_T("发送方IP："), local_data->arph->ar_hln);
+		for (i = 0; i < 4; i++)
+		{
+			if (i <= 2)
+				str.AppendFormat(_T("%d."), local_data->arph->ar_srcip[i]);
+			else
+				str.AppendFormat(_T("%d"), local_data->arph->ar_srcip[i]);
+		}
+		this->m_treeCtrl.InsertItem(str, arp);
+
+		str.Format(_T("接收方MAC："), local_data->arph->ar_hln);
+		for (i = 0; i < 6; i++)
+		{
+			if (i <= 4)
+				str.AppendFormat(_T("%02x-"), local_data->arph->ar_destmac[i]);
+			else
+				str.AppendFormat(_T("%02x"), local_data->arph->ar_destmac[i]);
+		}
+		this->m_treeCtrl.InsertItem(str, arp);
+
+		str.Format(_T("接收方IP："), local_data->arph->ar_hln);
+		for (i = 0; i < 4; i++)
+		{
+			if (i <= 2)
+				str.AppendFormat(_T("%d."), local_data->arph->ar_destip[i]);
+			else
+				str.AppendFormat(_T("%d"), local_data->arph->ar_destip[i]);
+		}
+		this->m_treeCtrl.InsertItem(str, arp);
+
+	}
+	else if (0x0800 == local_data->ethh->type) {//IP
+
+		HTREEITEM ip = this->m_treeCtrl.InsertItem(_T("IP协议头"), data);
+
+		str.Format(_T("版本：%d"), local_data->iph->version);
+		m_treeCtrl.InsertItem(str, ip);
+		str.Format(_T("IP头长：%d"), local_data->iph->ihl);
+		m_treeCtrl.InsertItem(str, ip);
+		str.Format(_T("服务类型：%d"), local_data->iph->tos);
+		m_treeCtrl.InsertItem(str, ip);
+		str.Format(_T("总长度：%d"), local_data->iph->tlen);
+		m_treeCtrl.InsertItem(str, ip);
+		str.Format(_T("标识：0x%02x"), local_data->iph->id);
+		m_treeCtrl.InsertItem(str, ip);
+		str.Format(_T("段偏移：%d"), local_data->iph->frag_off);
+		m_treeCtrl.InsertItem(str, ip);
+		str.Format(_T("生存期：%d"), local_data->iph->ttl);
+		m_treeCtrl.InsertItem(str, ip);
+		str.Format(_T("协议：%d"), local_data->iph->proto);
+		m_treeCtrl.InsertItem(str, ip);
+		str.Format(_T("头部校验和：0x%02x"), local_data->iph->check);
+		m_treeCtrl.InsertItem(str, ip);
+
+		str.Format(_T("源IP："));
+		struct in_addr in;
+		in.S_un.S_addr = local_data->iph->saddr;
+		str.AppendFormat(CString(inet_ntoa(in)));
+		m_treeCtrl.InsertItem(str, ip);
+
+		str.Format(_T("目的IP："));
+		in.S_un.S_addr = local_data->iph->daddr;
+		str.AppendFormat(CString(inet_ntoa(in)));
+		m_treeCtrl.InsertItem(str, ip);
+
+		/*处理传输层ICMP、UDP、TCP*/
+		if (1 == local_data->iph->proto)//ICMP
+		{
+			HTREEITEM icmp = m_treeCtrl.InsertItem(_T("ICMP协议头"), data);
+
+			str.Format(_T("类型:%d"), local_data->icmph->type);
+			m_treeCtrl.InsertItem(str, icmp);
+			str.Format(_T("代码:%d"), local_data->icmph->code);
+			m_treeCtrl.InsertItem(str, icmp);
+			str.Format(_T("序号:%d"), local_data->icmph->seq);
+			m_treeCtrl.InsertItem(str, icmp);
+			str.Format(_T("校验和:%d"), local_data->icmph->chksum);
+			m_treeCtrl.InsertItem(str, icmp);
+
+		}
+		else if (6 == local_data->iph->proto) {//TCP
+
+			HTREEITEM tcp = m_treeCtrl.InsertItem(_T("TCP协议头"), data);
+
+			str.Format(_T("  源端口:%d"), local_data->tcph->sport);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  目的端口:%d"), local_data->tcph->dport);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  序列号:0x%02x"), local_data->tcph->seq);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  确认号:%d"), local_data->tcph->ack_seq);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  头部长度:%d"), local_data->tcph->doff);
+
+			HTREEITEM flag = m_treeCtrl.InsertItem(_T(" +标志位"), tcp);
+
+			str.Format(_T("cwr %d"), local_data->tcph->cwr);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("ece %d"), local_data->tcph->ece);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("urg %d"), local_data->tcph->urg);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("ack %d"), local_data->tcph->ack);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("psh %d"), local_data->tcph->psh);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("rst %d"), local_data->tcph->rst);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("syn %d"), local_data->tcph->syn);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("fin %d"), local_data->tcph->fin);
+			m_treeCtrl.InsertItem(str, flag);
+
+			str.Format(_T("  紧急指针:%d"), local_data->tcph->urg_ptr);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  校验和:0x%02x"), local_data->tcph->check);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  选项:%d"), local_data->tcph->opt);
+			m_treeCtrl.InsertItem(str, tcp);
+		}
+		else if (17 == local_data->iph->proto) {				//UDP
+			HTREEITEM udp = m_treeCtrl.InsertItem(_T("UDP协议头"), data);
+
+			str.Format(_T("源端口:%d"), local_data->udph->sport);
+			m_treeCtrl.InsertItem(str, udp);
+			str.Format(_T("目的端口:%d"), local_data->udph->dport);
+			m_treeCtrl.InsertItem(str, udp);
+			str.Format(_T("总长度:%d"), local_data->udph->len);
+			m_treeCtrl.InsertItem(str, udp);
+			str.Format(_T("校验和:0x%02x"), local_data->udph->check);
+			m_treeCtrl.InsertItem(str, udp);
+		}
+	}
+	
+	return 1;
 }
 
 UINT WinpcapThreadFun(LPVOID lpParam)
@@ -243,8 +451,12 @@ UINT WinpcapThreadFun(LPVOID lpParam)
 			pcap_dump((u_char*)dlg->dumpfile, header, pkt_data);
 		}
 
-		//将报文放入一个链表
-		dlg->m_PacketList.AddTail(data);
+		//将报文结构体放入一个链表
+		dlg->m_pktdataList.AddTail(data);
+		//将二进制报文存入链表
+		ppkt_data = (u_char*)malloc(header->len);
+		memcpy(ppkt_data, pkt_data, header->len);
+		dlg->m_netpktList.AddTail(ppkt_data);
 
 		data->len = header->len;
 		local_tv_sec = header->ts.tv_sec;
@@ -328,6 +540,7 @@ void CSnifferDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON1, m_buttonStart);
 	DDX_Control(pDX, IDC_BUTTON2, m_buttonStop);
 	DDX_Control(pDX, IDC_BUTTON3, m_buttonSave);
+	DDX_Control(pDX, IDC_EDIT1, m_edit);
 }
 
 BEGIN_MESSAGE_MAP(CSnifferDlg, CDialogEx)
@@ -477,15 +690,21 @@ void CSnifferDlg::OnBnClickedButton1()
 	m_buttonSave.EnableWindow(FALSE);
 }
 
-
+//列表选中事件
 void CSnifferDlg::OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
 	// TODO: 在此添加控件通知处理程序代码
 	*pResult = 0;
+	int index;
+	index = m_listCtrl.GetHotItem();
+	if (index > m_pktdataList.GetCount() - 1)
+		return;
+	UpdateTree(index);
+	UpdateEdit(index);
 }
 
-
+//修改ListControl背景颜色
 void CSnifferDlg::OnNMCustomdrawList1(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	NMLVCUSTOMDRAW* pLVCD = reinterpret_cast<NMLVCUSTOMDRAW*>(pNMHDR);
@@ -502,28 +721,28 @@ void CSnifferDlg::OnNMCustomdrawList1(NMHDR *pNMHDR, LRESULT *pResult)
 	}
 	else if (pLVCD->nmcd.dwDrawStage == (CDDS_ITEMPREPAINT | CDDS_SUBITEM))
 	{
-		COLORREF clrNewTextColor;
+		COLORREF clrNewTextBk;
 		char buf[10];
 		memset(buf, 0, 10);
 
-		POSITION pos = m_PacketList.FindIndex(pLVCD->nmcd.dwItemSpec);
+		POSITION pos = m_pktdataList.FindIndex(pLVCD->nmcd.dwItemSpec);
 
-		struct pktdata * data = (struct pktdata *)m_PacketList.GetAt(pos);
+		struct pktdata * data = (struct pktdata *)m_pktdataList.GetAt(pos);
 		strcpy(buf, data->pktType);
-		
+
 		if (strcmp(buf, "UDP") == 0)
-			clrNewTextColor = RGB(194, 195, 252);
+			clrNewTextBk = RGB(194, 195, 252);
 		else if (strcmp(buf, "TCP") == 0)
-			clrNewTextColor = RGB(230, 230, 230);
+			clrNewTextBk = RGB(230, 230, 230);
 		else if (strcmp(buf, "ARP") == 0)
-			clrNewTextColor = RGB(226, 238, 227);
+			clrNewTextBk = RGB(226, 238, 227);
 		else if (strcmp(buf, "ICMP") == 0)
-			clrNewTextColor = RGB(49, 164, 238);
+			clrNewTextBk = RGB(49, 164, 238);
 		else if (strcmp(buf, "HTTP") == 0)
-			clrNewTextColor = RGB(238, 232, 180);
+			clrNewTextBk = RGB(238, 232, 180);
 		else
-			clrNewTextColor = RGB(255, 255, 255);
-		pLVCD->clrTextBk = clrNewTextColor;
+			clrNewTextBk = RGB(255, 255, 255);
+		pLVCD->clrTextBk = clrNewTextBk;
 
 		*pResult = CDRF_DODEFAULT;
 	}
