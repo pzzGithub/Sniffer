@@ -326,7 +326,7 @@ int CSnifferDlg::UpdateTree(int index)
 		m_treeCtrl.InsertItem(str, ip);
 		str.Format(_T("生存期：%d"), local_data->iph->ttl);
 		m_treeCtrl.InsertItem(str, ip);
-		str.Format(_T("协议：%d"), local_data->iph->proto);
+		str.Format(_T("上层协议：%d"), local_data->iph->proto);
 		m_treeCtrl.InsertItem(str, ip);
 		str.Format(_T("头部校验和：0x%02x"), local_data->iph->check);
 		m_treeCtrl.InsertItem(str, ip);
@@ -370,6 +370,7 @@ int CSnifferDlg::UpdateTree(int index)
 			str.Format(_T("  确认号:%d"), local_data->tcph->ack_seq);
 			m_treeCtrl.InsertItem(str, tcp);
 			str.Format(_T("  头部长度:%d"), local_data->tcph->doff);
+			m_treeCtrl.InsertItem(str, tcp);
 
 			HTREEITEM flag = m_treeCtrl.InsertItem(_T(" +标志位"), tcp);
 
@@ -501,6 +502,7 @@ int CSnifferDlg::UpdateTree(int index)
 			str.Format(_T("选项-长度%d"), local_data->icmph6->op_len);
 			m_treeCtrl.InsertItem(str, icmp6);
 			str.Format(_T("选项-链路层地址:"));
+			m_treeCtrl.InsertItem(str, icmp6);
 			int i;
 			for (i = 0; i < 6; i++)
 			{
@@ -525,6 +527,7 @@ int CSnifferDlg::UpdateTree(int index)
 			str.Format(_T("  确认号:%d"), local_data->tcph->ack_seq);
 			m_treeCtrl.InsertItem(str, tcp);
 			str.Format(_T("  头部长度:%d"), local_data->tcph->doff);
+			m_treeCtrl.InsertItem(str, tcp);
 
 			HTREEITEM flag = m_treeCtrl.InsertItem(_T("标志位"), tcp);
 
