@@ -130,6 +130,34 @@ typedef struct icmphdr6
 	u_char op_ethaddr[6];//选项：链路层地址
 };
 
+typedef struct dnshdr
+{
+	u_short id;
+#if defined(LITTLE_ENDIAN)
+	u_short rd : 1,
+		tc:1,
+		aa:1,
+		opcode:4,
+		qr:1,
+		rcode:4,
+		reserved:3,
+		ra:1;
+#elif defined(BIG_ENDIAN)
+	u_short qr : 1,
+		opcode : 4,
+		aa : 1,
+		tc : 1,
+		rd : 1,
+		ra : 1,
+		reserved : 3,
+		rcode : 4;
+#endif
+	u_short questNum;
+	u_short answerNum;
+	u_short authorNum;
+	u_short additionNum;
+};
+
 //要保存的数据结构
 typedef struct pktdata
 {
@@ -148,5 +176,5 @@ typedef struct pktdata
 	struct udphdr* udph;//UDP包头
 	struct tcphdr* tcph;//TCP包头
 
-	void *apph;//应用层包头
+	struct dnshdr* dnsh;//dns包头
 };

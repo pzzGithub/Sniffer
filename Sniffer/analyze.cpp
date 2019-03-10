@@ -231,13 +231,41 @@ int analyze_udp(const u_char * pkt, pktdata * data)
 	data->udph->len = ntohs(udph->len);
 	data->udph->sport = ntohs(udph->sport);
 
-	strcpy(data->pktType, "UDP");
+	if (ntohs(udph->sport) == 53 || ntohs(udph->dport) == 53)
+		return analyze_dns((u_char*)udph+sizeof(struct udphdr),data);
+	else
+		strcpy(data->pktType, "UDP");
 	return 1;
 }
 
 int analyze_http(const u_char * pkt, pktdata * data)
 {
 	return 0;
+}
+
+int analyze_dns(const u_char * pkt, pktdata * data)
+{
+	struct dnshdr* dnsh = (struct dnshdr*)pkt;
+	data->dnsh = (struct dnshdr*)malloc(sizeof(struct dnshdr));
+	if (data->dnsh == NULL)
+		return -1;
+
+	data->dnsh->id = dnsh->id;
+	data->dnsh->qr = dnsh->qr;
+	data->dnsh->opcode = dnsh->opcode;
+	data->dnsh->aa = dnsh->aa;
+	data->dnsh->tc = dnsh->tc;
+	data->dnsh->rd = dnsh->rd;
+	data->dnsh->ra = dnsh->ra;
+	data->dnsh->reserved = dnsh->reserved;
+	data->dnsh->rcode = dnsh->rcode;
+	data->dnsh->questNum = dnsh->questNum;
+	data->dnsh->answerNum = dnsh->answerNum;
+	data->dnsh->authorNum = dnsh->authorNum;
+	data->dnsh->additionNum = dnsh->additionNum;
+	strcpy(data->pktType, "DNS");
+
+	return 1;
 }
 
 void print_packet_hex(const u_char* pkt, int size_pkt, CString *buf)

@@ -20,5 +20,6 @@ int analyze_udp(const u_char* pkt, struct pktdata *dtat);
 
 //”¶”√≤„
 int analyze_http(const u_char* pkt, struct pktdata *data);
+int analyze_dns(const u_char* pkt, struct pktdata *data);
 
 void print_packet_hex(const u_char* pkt, int size_pkt, CString *buf);

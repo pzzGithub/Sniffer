@@ -408,6 +408,41 @@ int CSnifferDlg::UpdateTree(int index)
 			m_treeCtrl.InsertItem(str, udp);
 			str.Format(_T("校验和:0x%02x"), local_data->udph->check);
 			m_treeCtrl.InsertItem(str, udp);
+
+			if (local_data->udph->dport == 53 || local_data->udph->sport == 53)
+			{
+				HTREEITEM dns = m_treeCtrl.InsertItem(_T("DNS协议头"), data);
+
+				str.Format(_T("会话标识:%x"), local_data->dnsh->id);
+				m_treeCtrl.InsertItem(str, dns);
+				
+				HTREEITEM flags=m_treeCtrl.InsertItem(_T("标识"), dns);
+				str.Format(_T("QR:%d"), local_data->dnsh->qr);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("opcode:%d"), local_data->dnsh->opcode);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("AA:%d"), local_data->dnsh->aa);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("TC:%d"), local_data->dnsh->tc);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("RD:%d"), local_data->dnsh->rd);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("RA:%d"), local_data->dnsh->ra);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("Reserved:%d"), local_data->dnsh->reserved);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("rCode:%d"), local_data->dnsh->rcode);
+				m_treeCtrl.InsertItem(str, flags);
+
+				str.Format(_T("查询记录数:%d"), ntohs(local_data->dnsh->questNum));
+				m_treeCtrl.InsertItem(str, dns);
+				str.Format(_T("回答记录数:%d"), ntohs(local_data->dnsh->answerNum));
+				m_treeCtrl.InsertItem(str, dns);
+				str.Format(_T("授权回答记录数:%d"), ntohs(local_data->dnsh->authorNum));
+				m_treeCtrl.InsertItem(str, dns);
+				str.Format(_T("附加信息记录数:%d"), ntohs(local_data->dnsh->additionNum));
+				m_treeCtrl.InsertItem(str, dns);
+			}
 		}
 	}
 	else if (0x86dd == local_data->ethh->type) {//IPv6
@@ -528,6 +563,41 @@ int CSnifferDlg::UpdateTree(int index)
 			m_treeCtrl.InsertItem(str, udp);
 			str.Format(_T("校验和:0x%02x"), local_data->udph->check);
 			m_treeCtrl.InsertItem(str, udp);
+
+			if (local_data->udph->dport == 53 || local_data->udph->sport == 53)
+			{
+				HTREEITEM dns = m_treeCtrl.InsertItem(_T("DNS协议头"), data);
+
+				str.Format(_T("会话标识:%x"), local_data->dnsh->id);
+				m_treeCtrl.InsertItem(str, dns);
+
+				HTREEITEM flags = m_treeCtrl.InsertItem(_T("标识"), dns);
+				str.Format(_T("QR:%d"), local_data->dnsh->qr);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("opcode:%d"), local_data->dnsh->opcode);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("AA:%d"), local_data->dnsh->aa);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("TC:%d"), local_data->dnsh->tc);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("RD:%d"), local_data->dnsh->rd);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("RA:%d"), local_data->dnsh->ra);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("Reserved:%d"), local_data->dnsh->reserved);
+				m_treeCtrl.InsertItem(str, flags);
+				str.Format(_T("rCode:%d"), local_data->dnsh->rcode);
+				m_treeCtrl.InsertItem(str, flags);
+
+				str.Format(_T("查询记录数:%d"), ntohs(local_data->dnsh->questNum));
+				m_treeCtrl.InsertItem(str, dns);
+				str.Format(_T("回答记录数:%d"), ntohs(local_data->dnsh->answerNum));
+				m_treeCtrl.InsertItem(str, dns);
+				str.Format(_T("授权回答记录数:%d"), ntohs(local_data->dnsh->authorNum));
+				m_treeCtrl.InsertItem(str, dns);
+				str.Format(_T("附加信息记录数:%d"), ntohs(local_data->dnsh->additionNum));
+				m_treeCtrl.InsertItem(str, dns);
+			}
 		}
 	}
 	m_treeCtrl.Expand(data, TVE_EXPAND);
