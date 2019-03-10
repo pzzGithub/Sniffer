@@ -192,10 +192,11 @@ int CSnifferDlg::StartWinpcap()
 	return 1;
 }
 
+//更新编辑框
 int CSnifferDlg::UpdateEdit(int index)
 {
 	POSITION localpos, netpos;
-	localpos =m_pktdataList.FindIndex(index);
+	localpos = m_pktdataList.FindIndex(index);
 	netpos = m_netpktList.FindIndex(index);
 
 	struct pktdata* local_data = (struct pktdata*)(m_pktdataList.GetAt(localpos));
@@ -204,22 +205,24 @@ int CSnifferDlg::UpdateEdit(int index)
 	CString buf;
 	print_packet_hex(net_data, local_data->len, &buf);
 
-	this->m_edit.SetWindowText(buf);
+	m_edit.SetWindowText(buf);
 	return 1;
 }
 
+//更新树形列表
 int CSnifferDlg::UpdateTree(int index)
 {
 	POSITION localpos;
 	CString str;
 	int i;
-
-	this->m_treeCtrl.DeleteAllItems();
+	m_treeCtrl.ModifyStyle(NULL, TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT);
+	m_treeCtrl.DeleteAllItems();
 
 	localpos = m_pktdataList.FindIndex(index);
 	struct pktdata* local_data = (struct pktdata*)(m_pktdataList.GetAt(localpos));
 
 	HTREEITEM root = m_treeCtrl.GetRootItem();
+
 	str.Format(_T("接收到的第%d个数据包"), index + 1);
 	HTREEITEM data = m_treeCtrl.InsertItem(str, root);
 
@@ -234,7 +237,7 @@ int CSnifferDlg::UpdateTree(int index)
 		else
 			str.AppendFormat(_T("%02x"), local_data->ethh->src[i]);
 	}
-	this->m_treeCtrl.InsertItem(str, frame);
+	m_treeCtrl.InsertItem(str, frame);
 	//目的MAC
 	str.Format(_T("目的MAC："));
 	for (i = 0; i < 6; i++)
@@ -247,7 +250,7 @@ int CSnifferDlg::UpdateTree(int index)
 	m_treeCtrl.InsertItem(str, frame);
 	//类型
 	str.Format(_T("类型：0x%02x"), local_data->ethh->type);
-	this->m_treeCtrl.InsertItem(str, frame);
+	m_treeCtrl.InsertItem(str, frame);
 
 	/*处理IP、ARP数据包*/
 	if (0x0806 == local_data->ethh->type)//ARP
@@ -282,7 +285,7 @@ int CSnifferDlg::UpdateTree(int index)
 			else
 				str.AppendFormat(_T("%d"), local_data->arph->ar_srcip[i]);
 		}
-		this->m_treeCtrl.InsertItem(str, arp);
+		m_treeCtrl.InsertItem(str, arp);
 
 		str.Format(_T("接收方MAC："), local_data->arph->ar_hln);
 		for (i = 0; i < 6; i++)
@@ -292,7 +295,7 @@ int CSnifferDlg::UpdateTree(int index)
 			else
 				str.AppendFormat(_T("%02x"), local_data->arph->ar_destmac[i]);
 		}
-		this->m_treeCtrl.InsertItem(str, arp);
+		m_treeCtrl.InsertItem(str, arp);
 
 		str.Format(_T("接收方IP："), local_data->arph->ar_hln);
 		for (i = 0; i < 4; i++)
@@ -302,12 +305,12 @@ int CSnifferDlg::UpdateTree(int index)
 			else
 				str.AppendFormat(_T("%d"), local_data->arph->ar_destip[i]);
 		}
-		this->m_treeCtrl.InsertItem(str, arp);
+		m_treeCtrl.InsertItem(str, arp);
 
 	}
 	else if (0x0800 == local_data->ethh->type) {//IP
 
-		HTREEITEM ip = this->m_treeCtrl.InsertItem(_T("IP协议头"), data);
+		HTREEITEM ip = m_treeCtrl.InsertItem(_T("IP协议头"), data);
 
 		str.Format(_T("版本：%d"), local_data->iph->version);
 		m_treeCtrl.InsertItem(str, ip);
@@ -407,7 +410,7 @@ int CSnifferDlg::UpdateTree(int index)
 			m_treeCtrl.InsertItem(str, udp);
 		}
 	}
-	
+	m_treeCtrl.Expand(data, TVE_EXPAND);
 	return 1;
 }
 
@@ -427,8 +430,11 @@ UINT WinpcapThreadFun(LPVOID lpParam)
 	{
 		return -1;
 	}
-	while ((res = pcap_next_ex(dlg->adhandle, &header, &pkt_data)) >= 0 && dlg->threadFlag == 1)
+	while ((res = pcap_next_ex(dlg->adhandle, &header, &pkt_data)) >= 0)
 	{
+		if (dlg->threadFlag == 0)
+			break;
+
 		if (res == 0)
 			continue;
 
@@ -451,11 +457,11 @@ UINT WinpcapThreadFun(LPVOID lpParam)
 			pcap_dump((u_char*)dlg->dumpfile, header, pkt_data);
 		}
 
-		//将报文结构体放入一个链表
-		dlg->m_pktdataList.AddTail(data);
-		//将二进制报文存入链表
+		//将报文存到链表中
 		ppkt_data = (u_char*)malloc(header->len);
 		memcpy(ppkt_data, pkt_data, header->len);
+
+		dlg->m_pktdataList.AddTail(data);
 		dlg->m_netpktList.AddTail(ppkt_data);
 
 		data->len = header->len;
@@ -680,6 +686,8 @@ void CSnifferDlg::OnBnClickedButton1()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	packetNum = 1;
+	m_pktdataList.RemoveAll();
+	m_netpktList.RemoveAll();
 
 	if (StartWinpcap() < 0)
 		return;
