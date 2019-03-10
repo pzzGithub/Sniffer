@@ -17,10 +17,22 @@ int analyze_frame(const u_char * pkt, pktdata * data)
 
 	data->ethh->type = ntohs(ethh->type);
 
-	if (data->ethh->type == 0x0806)
-		return analyze_arp((u_char*)pkt + 14, data);
-	else if (data->ethh->type == 0x0800)
-		return analyze_ip((u_char*)pkt + 14, data);
+	switch (data->ethh->type)
+	{
+	case 0x0806:
+		return analyze_arp((u_char*)pkt + 14, data);      //mac 头大小为14
+		break;
+	case 0x0800:
+		return analyze_ip((u_char*)pkt + 14,data);
+		break;
+	case 0x86dd:
+		return analyze_ip6((u_char*)pkt + 14, data);
+		return -1;
+		break;
+	default:
+		return -1;
+		break;
+	}
 	return 1;
 }
 
@@ -57,6 +69,46 @@ int analyze_ip(const u_char * pkt, pktdata * data)
 		return analyze_udp((u_char*)iph + iplen, data);
 	else
 		return -1;
+	return 1;
+}
+
+int analyze_ip6(const u_char * pkt, pktdata * data)
+{
+	int i;
+	struct iphdr6 *iph6 = (struct iphdr6*)pkt;
+	data->iph6 = (struct iphdr6*)malloc(sizeof(struct iphdr6));
+
+	if (NULL == data->iph6)
+		return -1;
+
+	data->iph6->version = iph6->version;
+	data->iph6->flowtype = iph6->flowtype;
+	data->iph6->flowid = iph6->flowid;
+	data->iph6->plen = ntohs(iph6->plen);
+	data->iph6->nh = iph6->nh;
+	data->iph6->hlim = iph6->hlim;
+
+	for (i = 0; i < 16; i++)
+	{
+		data->iph6->saddr[i] = iph6->saddr[i];
+		data->iph6->daddr[i] = iph6->daddr[i];
+	}
+
+	switch (iph6->nh)
+	{
+	case 0x3a:
+		return analyze_icmp6((u_char*)iph6 + 40, data);
+		break;
+	case 0x06:
+		return analyze_tcp((u_char*)iph6 + 40, data);
+		break;
+	case 0x11:
+		return analyze_udp((u_char*)iph6 + 40, data);
+		break;
+	default:
+		return-1;
+		break;
+	}
 	return 1;
 }
 
@@ -105,6 +157,29 @@ int analyze_icmp(const u_char * pkt, pktdata * data)
 	data->icmph->seq = icmph->seq;
 	data->icmph->type = icmph->type;
 	strcpy(data->pktType, "ICMP");
+	return 1;
+}
+
+int analyze_icmp6(const u_char * pkt, pktdata * data)
+{
+	int i;
+	struct icmphdr6* icmph6 = (struct icmphdr6*)pkt;
+	data->icmph6 = (struct icmphdr6*)malloc(sizeof(struct icmphdr6));
+
+	if (NULL == data->icmph6)
+		return -1;
+
+	data->icmph6->chksum = icmph6->chksum;
+	data->icmph6->code = icmph6->code;
+	data->icmph6->seq = icmph6->seq;
+	data->icmph6->type = icmph6->type;
+	data->icmph6->op_len = icmph6->op_len;
+	data->icmph6->op_type = icmph6->op_type;
+	for (i = 0; i < 6; i++)
+	{
+		data->icmph6->op_ethaddr[i] = icmph6->op_ethaddr[i];
+	}
+	strcpy(data->pktType, "ICMPv6");
 	return 1;
 }
 

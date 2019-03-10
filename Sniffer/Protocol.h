@@ -51,6 +51,19 @@ typedef struct iphdr
 	u_int	op_pad;		//选项等
 };
 
+//定义IPv6
+typedef struct iphdr6
+{
+	u_int version : 4,				//版本
+		flowtype : 8,			//流类型
+		flowid : 20;				//流标签
+	u_short plen;					//有效载荷长度
+	u_char nh;						//下一个头部
+	u_char hlim;					//跳限制
+	u_short saddr[8];			//源地址
+	u_short daddr[8];			//目的地址
+};
+
 //定义TCP头
 typedef struct tcphdr
 {
@@ -105,6 +118,17 @@ typedef struct icmphdr
 	u_char chksum;		//8位校验和
 };
 
+//定义ICMPv6
+typedef struct icmphdr6
+{
+	u_char type;//8位 类型
+	u_char code;//8位 代码
+	u_char seq;//序列号 8位
+	u_char chksum;//8位校验和
+	u_char op_type;//选项：类型
+	u_char op_len;//选项：长度
+	u_char op_ethaddr[6];//选项：链路层地址
+};
 
 //要保存的数据结构
 typedef struct pktdata
@@ -117,8 +141,10 @@ typedef struct pktdata
 
 	struct arphdr* arph;//ARP包头
 	struct iphdr* iph;//IP包头
+	struct iphdr6* iph6;//IPV6
 
 	struct icmphdr* icmph;//ICMP包头
+	struct icmphdr6* icmph6;//ICMPv6包头
 	struct udphdr* udph;//UDP包头
 	struct tcphdr* tcph;//TCP包头
 

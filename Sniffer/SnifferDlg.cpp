@@ -410,10 +410,131 @@ int CSnifferDlg::UpdateTree(int index)
 			m_treeCtrl.InsertItem(str, udp);
 		}
 	}
+	else if (0x86dd == local_data->ethh->type) {//IPv6
+		HTREEITEM ip6 = m_treeCtrl.InsertItem(_T("IPv6协议头"), data);
+
+		str.Format(_T("版本:%d"), local_data->iph6->flowtype);
+		m_treeCtrl.InsertItem(str, ip6);
+		str.Format(_T("流类型:%d"), local_data->iph6->version);
+		m_treeCtrl.InsertItem(str, ip6);
+
+		str.Format(_T("流标签:%d"), local_data->iph6->flowid);
+		m_treeCtrl.InsertItem(str, ip6);
+		str.Format(_T("有效载荷长度:%d"), local_data->iph6->plen);
+		m_treeCtrl.InsertItem(str, ip6);
+		str.Format(_T("下一个首部:0x%02x"), local_data->iph6->nh);
+		m_treeCtrl.InsertItem(str, ip6);
+		str.Format(_T("跳限制:%d"), local_data->iph6->hlim);
+		m_treeCtrl.InsertItem(str, ip6);
+
+		str.Format(_T("源地址:"));
+		int n;
+		for (n = 0; n < 8; n++)
+		{
+			if (n <= 6)
+				str.AppendFormat(_T("%02x:"), local_data->iph6->saddr[n]);
+			else
+				str.AppendFormat(_T("%02x"), local_data->iph6->saddr[n]);
+		}
+		m_treeCtrl.InsertItem(str, ip6);
+
+		str.Format(_T("目的地址:"));
+		for (n = 0; n < 8; n++)
+		{
+			if (n <= 6)
+				str.AppendFormat(_T("%02x:"), local_data->iph6->saddr[n]);
+			else
+				str.AppendFormat(_T("%02x"), local_data->iph6->saddr[n]);
+		}
+		m_treeCtrl.InsertItem(str, ip6);
+
+		/*处理传输层ICMPv6、UDP、TCP*/
+		if (0x3a == local_data->iph6->nh)//ICMPv6
+		{
+			HTREEITEM icmp6 = m_treeCtrl.InsertItem(_T("ICMPv6协议头"), data);
+
+			str.Format(_T("类型:%d"), local_data->icmph6->type);
+			m_treeCtrl.InsertItem(str, icmp6);
+			str.Format(_T("代码:%d"), local_data->icmph6->code);
+			m_treeCtrl.InsertItem(str, icmp6);
+			str.Format(_T("序号:%d"), local_data->icmph6->seq);
+			m_treeCtrl.InsertItem(str, icmp6);
+			str.Format(_T("校验和:%d"), local_data->icmph6->chksum);
+			m_treeCtrl.InsertItem(str, icmp6);
+			str.Format(_T("选项-类型:%d"), local_data->icmph6->op_type);
+			m_treeCtrl.InsertItem(str, icmp6);
+			str.Format(_T("选项-长度%d"), local_data->icmph6->op_len);
+			m_treeCtrl.InsertItem(str, icmp6);
+			str.Format(_T("选项-链路层地址:"));
+			int i;
+			for (i = 0; i < 6; i++)
+			{
+				if (i <= 4)
+					str.AppendFormat(_T("%02x-"), local_data->icmph6->op_ethaddr[i]);
+				else
+					str.AppendFormat(_T("%02x"), local_data->icmph6->op_ethaddr[i]);
+			}
+			m_treeCtrl.InsertItem(str, icmp6);
+
+		}
+		else if (0x06 == local_data->iph6->nh) {//TCP
+
+			HTREEITEM tcp = m_treeCtrl.InsertItem(_T("TCP协议头"), data);
+
+			str.Format(_T("  源端口:%d"), local_data->tcph->sport);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  目的端口:%d"), local_data->tcph->dport);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  序列号:0x%02x"), local_data->tcph->seq);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  确认号:%d"), local_data->tcph->ack_seq);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  头部长度:%d"), local_data->tcph->doff);
+
+			HTREEITEM flag = m_treeCtrl.InsertItem(_T("标志位"), tcp);
+
+			str.Format(_T("cwr %d"), local_data->tcph->cwr);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("ece %d"), local_data->tcph->ece);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("urg %d"), local_data->tcph->urg);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("ack %d"), local_data->tcph->ack);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("psh %d"), local_data->tcph->psh);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("rst %d"), local_data->tcph->rst);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("syn %d"), local_data->tcph->syn);
+			m_treeCtrl.InsertItem(str, flag);
+			str.Format(_T("fin %d"), local_data->tcph->fin);
+			m_treeCtrl.InsertItem(str, flag);
+
+			str.Format(_T("  紧急指针:%d"), local_data->tcph->urg_ptr);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  校验和:0x%02x"), local_data->tcph->check);
+			m_treeCtrl.InsertItem(str, tcp);
+			str.Format(_T("  选项:%d"), local_data->tcph->opt);
+			m_treeCtrl.InsertItem(str, tcp);
+		}
+		else if (0x11 == local_data->iph6->nh) {//UDP
+			HTREEITEM udp = m_treeCtrl.InsertItem(_T("UDP协议头"), data);
+
+			str.Format(_T("源端口:%d"), local_data->udph->sport);
+			m_treeCtrl.InsertItem(str, udp);
+			str.Format(_T("目的端口:%d"), local_data->udph->dport);
+			m_treeCtrl.InsertItem(str, udp);
+			str.Format(_T("总长度:%d"), local_data->udph->len);
+			m_treeCtrl.InsertItem(str, udp);
+			str.Format(_T("校验和:0x%02x"), local_data->udph->check);
+			m_treeCtrl.InsertItem(str, udp);
+		}
+	}
 	m_treeCtrl.Expand(data, TVE_EXPAND);
 	return 1;
 }
 
+//工作线程函数
 UINT WinpcapThreadFun(LPVOID lpParam)
 {
 	CSnifferDlg *dlg = (CSnifferDlg*)lpParam;
@@ -693,6 +814,7 @@ void CSnifferDlg::OnBnClickedButton1()
 		return;
 	m_listCtrl.DeleteAllItems();
 	m_treeCtrl.DeleteAllItems();
+	m_edit.SetWindowTextW(_T(""));
 	m_buttonStart.EnableWindow(FALSE);
 	m_buttonStop.EnableWindow(TRUE);
 	m_buttonSave.EnableWindow(FALSE);
@@ -737,8 +859,9 @@ void CSnifferDlg::OnNMCustomdrawList1(NMHDR *pNMHDR, LRESULT *pResult)
 
 		struct pktdata * data = (struct pktdata *)m_pktdataList.GetAt(pos);
 		strcpy(buf, data->pktType);
-
-		if (strcmp(buf, "UDP") == 0)
+		if (strcmp(buf, "IPV6") == 0)
+			clrNewTextBk = RGB(111, 224, 254);
+		else if (strcmp(buf, "UDP") == 0)
 			clrNewTextBk = RGB(194, 195, 252);
 		else if (strcmp(buf, "TCP") == 0)
 			clrNewTextBk = RGB(230, 230, 230);
@@ -746,6 +869,8 @@ void CSnifferDlg::OnNMCustomdrawList1(NMHDR *pNMHDR, LRESULT *pResult)
 			clrNewTextBk = RGB(226, 238, 227);
 		else if (strcmp(buf, "ICMP") == 0)
 			clrNewTextBk = RGB(49, 164, 238);
+		else if (strcmp(buf, "ICMPv6") == 0)
+			clrNewTextBk = RGB(189, 254, 76);
 		else if (strcmp(buf, "HTTP") == 0)
 			clrNewTextBk = RGB(238, 232, 180);
 		else

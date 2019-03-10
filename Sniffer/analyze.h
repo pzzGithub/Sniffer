@@ -9,10 +9,12 @@ int analyze_frame(const u_char * pkt, struct pktdata * data);
 
 //ÍøÂç²ã
 int analyze_ip(const u_char* pkt, struct pktdata *data);
+int analyze_ip6(const u_char* pkt, struct pktdata *data);
 int analyze_arp(const u_char* pkt, struct pktdata *data);
 
 //´«Êä²ã
 int analyze_icmp(const u_char* pkt, struct pktdata *data);
+int analyze_icmp6(const u_char* pkt, struct pktdata *data);
 int analyze_tcp(const u_char* pkt, struct pktdata *data);
 int analyze_udp(const u_char* pkt, struct pktdata *dtat);
 
