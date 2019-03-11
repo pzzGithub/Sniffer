@@ -23,7 +23,7 @@ int analyze_frame(const u_char * pkt, pktdata * data)
 		return analyze_arp((u_char*)pkt + 14, data);      //mac 头大小为14
 		break;
 	case 0x0800:
-		return analyze_ip((u_char*)pkt + 14,data);
+		return analyze_ip((u_char*)pkt + 14, data);
 		break;
 	case 0x86dd:
 		return analyze_ip6((u_char*)pkt + 14, data);
@@ -57,7 +57,6 @@ int analyze_ip(const u_char * pkt, pktdata * data)
 	data->iph->ttl = iph->ttl;
 	data->iph->ihl = iph->ihl;
 	data->iph->version = iph->version;
-	//data->iph->ver_ihl= iph->ver_ihl;
 	data->iph->op_pad = iph->op_pad;
 
 	int iplen = iph->ihl * 4;//ip头长度
@@ -203,7 +202,7 @@ int analyze_tcp(const u_char * pkt, pktdata * data)
 	data->tcph->rst = tcph->rst;
 	data->tcph->syn = tcph->syn;
 	data->tcph->fin = tcph->fin;
-	//data->tcph->doff_flag = tcph->doff_flag;
+
 
 	data->tcph->dport = ntohs(tcph->dport);
 	data->tcph->seq = tcph->seq;
@@ -232,7 +231,7 @@ int analyze_udp(const u_char * pkt, pktdata * data)
 	data->udph->sport = ntohs(udph->sport);
 
 	if (ntohs(udph->sport) == 53 || ntohs(udph->dport) == 53)
-		return analyze_dns((u_char*)udph+sizeof(struct udphdr),data);
+		return analyze_dns((u_char*)udph + sizeof(struct udphdr), data);
 	else
 		strcpy(data->pktType, "UDP");
 	return 1;

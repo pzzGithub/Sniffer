@@ -10,19 +10,21 @@
 // CSnifferDlg 对话框
 class CSnifferDlg : public CDialogEx
 {
-// 构造
+	// 构造
 public:
 	CSnifferDlg(CWnd* pParent = nullptr);	// 标准构造函数
 	int InitWinpcap();
 	int StartWinpcap();
+	int SaveFile();
+	int ReadFile(CString path);
 	int UpdateEdit(int index);
 	int UpdateTree(int index);
-// 对话框数据
+	// 对话框数据
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_SNIFFER_DIALOG };
 #endif
 
-	protected:
+protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
 
@@ -58,10 +60,13 @@ public:
 	char filename[64];//文件名称		
 	CWinThread* winpcapThread;
 	int threadFlag;
-	
+
 	afx_msg void OnBnClickedButton1();
 	afx_msg void OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMCustomdrawList1(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnBnClickedButton2();
 	CEdit m_edit;
+	afx_msg void OnBnClickedButton3();
+	CButton m_buttonRead;
+	afx_msg void OnBnClickedButton4();
 };

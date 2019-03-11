@@ -192,6 +192,174 @@ int CSnifferDlg::StartWinpcap()
 	return 1;
 }
 
+int CSnifferDlg::SaveFile()
+{
+	CFileFind find;
+	if (NULL == find.FindFile(CString(filepath)))
+	{
+		MessageBox(_T("保存文件遇到未知意外"));
+		return -1;
+	}
+
+	//打开文件对话框
+	CFileDialog FileDlg(FALSE, _T(".txt"), NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT);
+	FileDlg.m_ofn.lpstrInitialDir = _T("c:\\");
+	if (FileDlg.DoModal() == IDOK)
+	{
+		CopyFile(CString(filepath), FileDlg.GetPathName(), TRUE);
+	}
+	return 1;
+}
+
+int CSnifferDlg::ReadFile(CString path)
+{
+	int res, itemNum, i;
+	struct tm *ltime;
+	CString timestr, buf, srcMac, destMac;
+	time_t local_tv_sec;
+	struct pcap_pkthdr *header;//数据包头
+	const u_char *pkt_data = NULL;//网络中收到的字节流数据
+	u_char *ppkt_data;
+
+	pcap_t *fp;
+
+
+	int len = path.GetLength() + 1;
+	char* charpath = (char *)malloc(len);
+	memset(charpath, 0, len);
+	if (NULL == charpath)
+		return -1;
+
+	for (i = 0; i < len; i++)
+		charpath[i] = (char)path.GetAt(i);
+
+	//打开相关文件
+	if ((fp = pcap_open_offline(charpath, errbuf)) == NULL)
+	{
+		MessageBox(_T("打开文件错误") + CString(errbuf));
+		return -1;
+	}
+
+	while ((res = pcap_next_ex(fp, &header, &pkt_data)) >= 0)
+	{
+		struct pktdata *data = (struct pktdata*)malloc(sizeof(struct pktdata));
+		memset(data, 0, sizeof(struct pktdata));
+
+		if (NULL == data)
+		{
+			MessageBox(_T("空间已满，无法接收新的数据包"));
+			return  -1;
+		}
+
+		//分析出错或所接收数据包不在处理范围内
+		if (analyze_frame(pkt_data, data) < 0)
+			continue;
+
+
+		//将本地化后的数据装入一个链表中，以便后来使用		
+		ppkt_data = (u_char*)malloc(header->len);
+		memcpy(ppkt_data, pkt_data, header->len);
+
+		m_pktdataList.AddTail(data);
+		m_netpktList.AddTail(ppkt_data);
+
+		//设置时间 数据长度
+		data->len = header->len;
+		local_tv_sec = header->ts.tv_sec;
+		ltime = localtime(&local_tv_sec);
+		data->time[0] = ltime->tm_year + 1900;
+		data->time[1] = ltime->tm_mon + 1;
+		data->time[2] = ltime->tm_mday;
+		data->time[3] = ltime->tm_hour;
+		data->time[4] = ltime->tm_min;
+		data->time[5] = ltime->tm_sec;
+
+		//为新接收到的数据包在listControl中新建一个item
+		buf.Format(_T("%d"), packetNum);
+		itemNum = m_listCtrl.InsertItem(packetNum, buf);
+
+		//显示时间戳
+		timestr.Format(_T("%d/%d/%d  %d:%d:%d"), data->time[0],
+			data->time[1], data->time[2], data->time[3], data->time[4], data->time[5]);
+		m_listCtrl.SetItemText(itemNum, 1, timestr);
+
+		//显示长度
+		buf.Empty();
+		buf.Format(_T("%d"), data->len);
+		m_listCtrl.SetItemText(itemNum, 2, buf);
+
+		//显示源MAC
+		buf.Empty();
+		buf.Format(_T("%02X-%02X-%02X-%02X-%02X-%02X"), data->ethh->src[0], data->ethh->src[1],
+			data->ethh->src[2], data->ethh->src[3], data->ethh->src[4], data->ethh->src[5]);
+		m_listCtrl.SetItemText(itemNum, 3, buf);
+
+		//显示目的MAC
+		buf.Empty();
+		buf.Format(_T("%02X-%02X-%02X-%02X-%02X-%02X"), data->ethh->dest[0], data->ethh->dest[1],
+			data->ethh->dest[2], data->ethh->dest[3], data->ethh->dest[4], data->ethh->dest[5]);
+		m_listCtrl.SetItemText(itemNum, 4, buf);
+
+		//获取协议
+		m_listCtrl.SetItemText(itemNum, 5, CString(data->pktType));
+
+		//获取源IP
+		buf.Empty();
+		if (0x0806 == data->ethh->type)
+		{
+			buf.Format(_T("%d.%d.%d.%d"), data->arph->ar_srcip[0],
+				data->arph->ar_srcip[1], data->arph->ar_srcip[2], data->arph->ar_srcip[3]);
+		}
+		else  if (0x0800 == data->ethh->type) {
+			struct  in_addr in;
+			in.S_un.S_addr = data->iph->saddr;
+			buf = CString(inet_ntoa(in));
+		}
+		else if (0x86dd == data->ethh->type) {
+			int i;
+			for (i = 0; i < 8; i++)
+			{
+				if (i <= 6)
+					buf.AppendFormat(_T("%02x-"), data->iph6->saddr[i]);
+				else
+					buf.AppendFormat(_T("%02x"), data->iph6->saddr[i]);
+			}
+		}
+		m_listCtrl.SetItemText(itemNum, 6, buf);
+
+		//获取目的IP
+		buf.Empty();
+		if (0x0806 == data->ethh->type)
+		{
+			buf.Format(_T("%d.%d.%d.%d"), data->arph->ar_destip[0],
+				data->arph->ar_destip[1], data->arph->ar_destip[2], data->arph->ar_destip[3]);
+		}
+		else if (0x0800 == data->ethh->type) {
+			struct  in_addr in;
+			in.S_un.S_addr = data->iph->daddr;
+			buf = CString(inet_ntoa(in));
+		}
+		else if (0x86dd == data->ethh->type) {
+			int i;
+			for (i = 0; i < 8; i++)
+			{
+				if (i <= 6)
+
+					buf.AppendFormat(_T("%02x-"), data->iph6->daddr[i]);
+				else
+					buf.AppendFormat(_T("%02x"), data->iph6->daddr[i]);
+			}
+		}
+		m_listCtrl.SetItemText(itemNum, 7, buf);
+
+		packetNum++;
+	}
+
+	pcap_close(fp);
+
+	return 1;
+}
+
 //更新编辑框
 int CSnifferDlg::UpdateEdit(int index)
 {
@@ -226,7 +394,7 @@ int CSnifferDlg::UpdateTree(int index)
 	str.Format(_T("接收到的第%d个数据包"), index + 1);
 	HTREEITEM data = m_treeCtrl.InsertItem(str, root);
 
-	/*处理帧数据*/
+	//处理帧数据
 	HTREEITEM frame = m_treeCtrl.InsertItem(_T("链路层数据"), data);
 	//源MAC
 	str.Format(_T("源MAC："));
@@ -252,7 +420,7 @@ int CSnifferDlg::UpdateTree(int index)
 	str.Format(_T("类型：0x%02x"), local_data->ethh->type);
 	m_treeCtrl.InsertItem(str, frame);
 
-	/*处理IP、ARP数据包*/
+	//处理IP、ARP数据包
 	if (0x0806 == local_data->ethh->type)//ARP
 	{
 		HTREEITEM arp = m_treeCtrl.InsertItem(_T("ARP协议头"), data);
@@ -342,7 +510,7 @@ int CSnifferDlg::UpdateTree(int index)
 		str.AppendFormat(CString(inet_ntoa(in)));
 		m_treeCtrl.InsertItem(str, ip);
 
-		/*处理传输层ICMP、UDP、TCP*/
+		//处理传输层ICMP、UDP、TCP
 		if (1 == local_data->iph->proto)//ICMP
 		{
 			HTREEITEM icmp = m_treeCtrl.InsertItem(_T("ICMP协议头"), data);
@@ -398,7 +566,7 @@ int CSnifferDlg::UpdateTree(int index)
 			str.Format(_T("  选项:%d"), local_data->tcph->opt);
 			m_treeCtrl.InsertItem(str, tcp);
 		}
-		else if (17 == local_data->iph->proto) {				//UDP
+		else if (17 == local_data->iph->proto) {//UDP
 			HTREEITEM udp = m_treeCtrl.InsertItem(_T("UDP协议头"), data);
 
 			str.Format(_T("源端口:%d"), local_data->udph->sport);
@@ -416,8 +584,8 @@ int CSnifferDlg::UpdateTree(int index)
 
 				str.Format(_T("会话标识:%x"), local_data->dnsh->id);
 				m_treeCtrl.InsertItem(str, dns);
-				
-				HTREEITEM flags=m_treeCtrl.InsertItem(_T("标识"), dns);
+
+				HTREEITEM flags = m_treeCtrl.InsertItem(_T("标识"), dns);
 				str.Format(_T("QR:%d"), local_data->dnsh->qr);
 				m_treeCtrl.InsertItem(str, flags);
 				str.Format(_T("opcode:%d"), local_data->dnsh->opcode);
@@ -484,7 +652,7 @@ int CSnifferDlg::UpdateTree(int index)
 		}
 		m_treeCtrl.InsertItem(str, ip6);
 
-		/*处理传输层ICMPv6、UDP、TCP*/
+		//处理传输层ICMPv6、UDP、TCP
 		if (0x3a == local_data->iph6->nh)//ICMPv6
 		{
 			HTREEITEM icmp6 = m_treeCtrl.InsertItem(_T("ICMPv6协议头"), data);
@@ -709,6 +877,16 @@ UINT WinpcapThreadFun(LPVOID lpParam)
 			in.S_un.S_addr = data->iph->saddr;
 			buf = CString(inet_ntoa(in));
 		}
+		else if (0x86dd == data->ethh->type) {
+			int n;
+			for (n = 0; n < 8; n++)
+			{
+				if (n <= 6)
+					buf.AppendFormat(_T("%02x:"), data->iph6->saddr[n]);
+				else
+					buf.AppendFormat(_T("%02x"), data->iph6->saddr[n]);
+			}
+		}
 		dlg->m_listCtrl.SetItemText(itemNum, 6, buf);
 
 		//目的IP
@@ -722,6 +900,16 @@ UINT WinpcapThreadFun(LPVOID lpParam)
 			struct  in_addr in;
 			in.S_un.S_addr = data->iph->daddr;
 			buf = CString(inet_ntoa(in));
+		}
+		else if (0x86dd == data->ethh->type) {
+			int n;
+			for (n = 0; n < 8; n++)
+			{
+				if (n <= 6)
+					buf.AppendFormat(_T("%02x:"), data->iph6->daddr[n]);
+				else
+					buf.AppendFormat(_T("%02x"), data->iph6->daddr[n]);
+			}
 		}
 		dlg->m_listCtrl.SetItemText(itemNum, 7, buf);
 
@@ -741,6 +929,7 @@ void CSnifferDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON2, m_buttonStop);
 	DDX_Control(pDX, IDC_BUTTON3, m_buttonSave);
 	DDX_Control(pDX, IDC_EDIT1, m_edit);
+	DDX_Control(pDX, IDC_BUTTON4, m_buttonRead);
 }
 
 BEGIN_MESSAGE_MAP(CSnifferDlg, CDialogEx)
@@ -751,6 +940,8 @@ BEGIN_MESSAGE_MAP(CSnifferDlg, CDialogEx)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST1, &CSnifferDlg::OnLvnItemchangedList1)
 	ON_NOTIFY(NM_CUSTOMDRAW, IDC_LIST1, &CSnifferDlg::OnNMCustomdrawList1)
 	ON_BN_CLICKED(IDC_BUTTON2, &CSnifferDlg::OnBnClickedButton2)
+	ON_BN_CLICKED(IDC_BUTTON3, &CSnifferDlg::OnBnClickedButton3)
+	ON_BN_CLICKED(IDC_BUTTON4, &CSnifferDlg::OnBnClickedButton4)
 END_MESSAGE_MAP()
 
 
@@ -879,6 +1070,13 @@ HCURSOR CSnifferDlg::OnQueryDragIcon()
 void CSnifferDlg::OnBnClickedButton1()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	if (m_pktdataList.IsEmpty() == FALSE)
+	{
+		if (MessageBox(_T("确认不保存数据？"), _T("警告"), MB_YESNO) == IDNO)
+		{
+			SaveFile();
+		}
+	}
 	packetNum = 1;
 	m_pktdataList.RemoveAll();
 	m_netpktList.RemoveAll();
@@ -891,6 +1089,7 @@ void CSnifferDlg::OnBnClickedButton1()
 	m_buttonStart.EnableWindow(FALSE);
 	m_buttonStop.EnableWindow(TRUE);
 	m_buttonSave.EnableWindow(FALSE);
+	m_buttonRead.EnableWindow(FALSE);
 }
 
 //列表选中事件
@@ -964,4 +1163,40 @@ void CSnifferDlg::OnBnClickedButton2()
 	m_buttonStart.EnableWindow(TRUE);
 	m_buttonStop.EnableWindow(FALSE);
 	m_buttonSave.EnableWindow(TRUE);
+	m_buttonRead.EnableWindow(TRUE);
+}
+
+
+void CSnifferDlg::OnBnClickedButton3()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (SaveFile() < 0)
+		return;
+}
+
+
+void CSnifferDlg::OnBnClickedButton4()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (m_pktdataList.IsEmpty() == FALSE)
+	{
+		if (MessageBox(_T("确认不保存数据？"), _T("警告"), MB_YESNO) == IDNO)
+		{
+			SaveFile();
+		}
+	}
+	m_listCtrl.DeleteAllItems();
+	packetNum = 1;
+	m_pktdataList.RemoveAll();
+	m_netpktList.RemoveAll();
+
+	//打开文件对话框
+	CFileDialog   FileDlg(TRUE, _T(".txt"), NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT);
+	FileDlg.m_ofn.lpstrInitialDir = _T("c:\\");
+	if (FileDlg.DoModal() == IDOK)
+	{
+		int ret = ReadFile(FileDlg.GetPathName());
+		if (ret < 0)
+			return;
+	}
 }
